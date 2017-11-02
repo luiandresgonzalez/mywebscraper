@@ -1,8 +1,3 @@
-# MyTXT.xyz parser 2.0 beta
-# Parsea múltiples páginas del sitio y extrae títulos y links de descarga, entre
-# otras cosas.
-
-
 import csv
 import requests
 import re
@@ -12,30 +7,29 @@ from bs4 import BeautifulSoup
 ################################################
 # INIT VALUES. Change these parameters
 ################################################
-# - Filename with csv extension
-# filename = "science-1-50.csv"
 
-# the starting pages
+# What is the first page to be scraped?
 lower_bound = 301
 
-# the REAL amount of pages [TODO] detect this automatically
-amount_pages = 400
+# What is the last page to be scraped? [TODO] detect this automatically
+upper_bound = 310
 
 # A string for a search pattern. Set to None if using category mode
 search_for = None
 
 # A string for search pattern
 category = "science"
-
-# Prueba
-if(search_for is None):
-    filename = category + "-" + str(lower_bound) + "-" + str(amount_pages) + ".csv"
-    print("Category mode:", category)
-else:
-    filename = search_for + "-" + str(lower_bound) + "-" + str(amount_pages) + ".csv"
-    print("Search mode:", search_for)
 ################################################
 
+# Setting the filename
+if(search_for is None):
+    filename = category + "-" + str(lower_bound) + "-" + str(upper_bound) + ".csv"
+    print("Category mode:", category)
+else:
+    filename = search_for + "-" + str(lower_bound) + "-" + str(upper_bound) + ".csv"
+    print("Search mode:", search_for)
+
+# Opening the filename connection and writing the headers
 fh = open(filename, "w", encoding = 'utf-8')
 
 fh.write("Title")
@@ -55,18 +49,38 @@ fh.write("\t")
 fh.write("Link")
 fh.write("\n")
 
-def createListOfLinks(pages_amount,search_pattern,category):
+def main():
+    # Get the list of books
+    listOfBooks = createListOfLinks(upper_bound,lower_bound,search_for,category)
+
+    # Get the download links and other stuff from the list of book links
+    listofLinks = getDownloadLink(listOfBooks)
+
+    # counter = 0
+    for titleList, authorlist, genrelist, langList, yearList, formatList, sizeList, linkList in zip(*listofLinks):
+        #  counter += 1
+        #  print("Writing entry number", counter)
+        output = "{} \t {} \t {} \t {} \t {} \t {} \t {} \t {} \n".format(titleList, authorlist, genrelist, langList, yearList, formatList, sizeList, linkList)
+        fh.write(output)
+
+        print("Have a good night!")
+
+
+# createListOfLinks:
+# Takes the parameters and returns a list of the links that contains both
+# the book data and the download link.
+def createListOfLinks(upper_bound,lower_bound,search_pattern,category):
     print("Getting links to books...")
     linkList = []
-    my_n_pages = pages_amount + 1
+    my_n_pages = upper_bound + 1
      # Starts at page 1, number of pages plus one
-    for i in range(lower_bound, pages_amount + 1):
-        print(round(i-lower_bound/(pages_amount-lower_bound)*100,2),"% complete",end="\r")
+    for i in range(lower_bound, upper_bound + 1):
+        print(round((i-lower_bound)/(upper_bound-lower_bound)*100,2),"% complete",end="\r")
         # Skip page 0
         if(i == 0):
             continue
-        # Los corchetes van a ser reemplazados por el número de página del
-        # iterador.
+
+        # The curly brackets will be replaced by category and page numbers
         if(search_pattern is None):
             # of type https://mytxt.xyz/animals/page/1/
             # print("Searching for books in the category", category)
@@ -86,13 +100,12 @@ def createListOfLinks(pages_amount,search_pattern,category):
     print("Found", len(linkList), "links to book pages")
     return linkList
 
-def getDownloadLink(lista):
+def getDownloadLink(booksUrls):
 
-    urls = lista
+    urls = booksUrls
     urls_length = len(urls)
     print("Getting books links from", urls_length, "urls.")
 
-    # linklista = {}
     titleList = []
     authorlist = []
     genrelist = []
@@ -102,8 +115,7 @@ def getDownloadLink(lista):
     downloadList = []
     sizeList = []
 
-
-    # Para cada link de libro:
+    # For each book link:
     for i in range(urls_length):
         print(round((i/urls_length)*100,2),"% complete", end="\r")
 
@@ -116,14 +128,14 @@ def getDownloadLink(lista):
         titulo = title.h1.get_text()
 
         book_data = soup.find('div', class_="col-md-9 book-info")
-        lista = book_data.ul.find_all('b')
-        # print(lista)
-        autor = lista[0].text
-        genre = lista[1].text
-        lang = lista[2].text
-        year = lista[3].text
-        formato = lista[4].text
-        size = removeMBorKB(lista[5].text)
+        book_data_list = book_data.ul.find_all('b')
+        # print(book_data_list)
+        autor = book_data_list[0].text
+        genre = book_data_list[1].text
+        lang = book_data_list[2].text
+        year = book_data_list[3].text
+        formato = book_data_list[4].text
+        size = removeMBorKB(book_data_list[5].text)
 
         div = soup.find('div', class_="download")
         link = div.a["href"]
@@ -157,16 +169,8 @@ def removeMBorKB(filesize):
         myfloat = result
     return str(myfloat)
 
-## Where the code gets executed!!!!!
-hola = getDownloadLink(createListOfLinks(amount_pages,search_for,category))
-# print(hola)
+# About this https://www.youtube.com/watch?v=sugvnHA7ElY. Thanks /u/Rorixrebel and /u/ykcmaster
+if __name__ == '__main__':
+    main()
 
-# counter = 0
-for titleList, authorlist, genrelist, langList, yearList, formatList, sizeList, linkList in zip(*hola):
-    #  counter += 1
-    #  print("Writing entry number", counter)
-     output = "{} \t {} \t {} \t {} \t {} \t {} \t {} \t {} \n".format(titleList, authorlist, genrelist, langList, yearList, formatList, sizeList, linkList)
-     fh.write(output)
-
-print("Have a good night!")
 fh.close()
